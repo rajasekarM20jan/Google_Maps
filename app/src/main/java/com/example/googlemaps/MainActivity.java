@@ -52,44 +52,7 @@ public class MainActivity extends AppCompatActivity {
         startActivity(new Intent(MainActivity.this, MapPage.class));
         //method to request permission
         requestPermissions();
-
-        getUserLocationForEvery2minutes();
     }
-
-    // To update user current location for every minute.
-    private void getUserLocationForEvery2minutes() {
-        try {
-            // Handler to init the user location method for every 2 min.
-            final Handler handler = new Handler();
-            handler.postDelayed(new Runnable() {
-                public void run() {
-                    // To fetch the user location.
-                    getLocation();
-                    // For every 2 min user location will be updated.
-                    handler.postDelayed(this, 12000);
-                }
-            }, 1000);
-        } catch (Exception ex) {
-            ex.printStackTrace();
-        }
-    }// End Of getUserLocationForEvery2minutes().
-
-    // To get user location details.
-    public void getLocation() {
-        try {
-            // Getting the location manager to fetch the user location.
-            locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
-            // To check if the user has given the location access or not.
-            // if not the method will not execute further.
-            if (ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-                return;
-            }
-            // Line to get the location update using Network provider.
-            locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 5000L, 5F, (LocationListener) this);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }// End of getLocation().
 
     //checking if the internet service is provided
     public static boolean isNetworkConnected(Context context) {

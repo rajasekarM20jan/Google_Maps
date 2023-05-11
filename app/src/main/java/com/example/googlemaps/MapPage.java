@@ -54,9 +54,11 @@ import java.util.List;
 
 public class MapPage extends AppCompatActivity {
     LocationManager locationManager;
-    ImageView refreshButton;
+    ImageView refreshButton,ZoomOut,ZoomIn;
     String apiKey;
+    private float currentZoomLevel;
     RequestQueue requestQueue;
+    private GoogleMap mMap;
     AutocompleteSupportFragment autocompleteFragment;
 
     @Override
@@ -64,8 +66,18 @@ public class MapPage extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_map_page);
         refreshButton=findViewById(R.id.refreshButton);
-        refreshButton.setOnClickListener(l->init());
+        ZoomIn=findViewById(R.id.ZoomIn);
+        ZoomOut=findViewById(R.id.ZoomOut);
         apiKey="AIzaSyA6ALVPqgd1jyJ0ODOiHvdriutXitlFDLc";
+        refreshButton.setOnClickListener(l->init());
+        ZoomOut.setOnClickListener(l->{
+            currentZoomLevel = mMap.getCameraPosition().zoom - 1f;
+            mMap.moveCamera(CameraUpdateFactory.zoomTo(currentZoomLevel));
+        });
+        ZoomIn.setOnClickListener(l->{
+            currentZoomLevel = mMap.getCameraPosition().zoom + 1f;
+            mMap.moveCamera(CameraUpdateFactory.zoomTo(currentZoomLevel));
+        });
         requestQueue = Volley.newRequestQueue(this);
         init();
         if (!Places.isInitialized()) {
@@ -89,14 +101,15 @@ public class MapPage extends AppCompatActivity {
                         mapFragment.getMapAsync(new OnMapReadyCallback() {
                             @Override
                             public void onMapReady(GoogleMap googleMap) {
-                                googleMap.clear();
+                                mMap=googleMap;
+                                mMap.clear();
                                 // Add a marker at current location fetched previously and animate the camera
                                 MarkerOptions markerOptions = new MarkerOptions();
                                 markerOptions.position(currentLatLng);
                                 markerOptions.title("You");
-                                googleMap.addMarker(markerOptions);
+                                mMap.addMarker(markerOptions);
                                 CameraUpdate cameraUpdate = CameraUpdateFactory.newLatLngZoom(currentLatLng, 18);
-                                googleMap.animateCamera(cameraUpdate);
+                                mMap.animateCamera(cameraUpdate);
 
                                 autocompleteFragment =
                                         (AutocompleteSupportFragment) getSupportFragmentManager().findFragmentById(R.id.autocomplete_fragment);
@@ -111,10 +124,10 @@ public class MapPage extends AppCompatActivity {
                                     public void onPlaceSelected(@NonNull Place place) {
                                         // Handle the selected place
                                         LatLng destinationLatLng = place.getLatLng();
-                                        googleMap.clear();
+                                        mMap.clear();
                                         // Add a marker to the map at the selected destination
-                                        googleMap.addMarker(markerOptions);
-                                        googleMap.addMarker(new MarkerOptions()
+                                        mMap.addMarker(markerOptions);
+                                        mMap.addMarker(new MarkerOptions()
                                                 .position(destinationLatLng)
                                                 .title(place.getName()));
                                         // Move the camera to the selected destination
@@ -124,7 +137,7 @@ public class MapPage extends AppCompatActivity {
                                         LatLngBounds bounds = builder.build();
                                         int padding=100;
                                         CameraUpdate cameraUpdate2 = CameraUpdateFactory.newLatLngBounds(bounds, padding);
-                                        googleMap.animateCamera(cameraUpdate2);
+                                        mMap.animateCamera(cameraUpdate2);
                                         String origin = currentLatLng.latitude + "," + currentLatLng.longitude;
                                         String destination = destinationLatLng.latitude + "," + destinationLatLng.longitude;
                                         String requestUrl = "https://maps.googleapis.com/maps/api/directions/json?origin="
@@ -153,7 +166,7 @@ public class MapPage extends AppCompatActivity {
                                                                 .color(Color.BLUE)
                                                                 .width(10);
 
-                                                        googleMap.addPolyline(polylineOptions);
+                                                        mMap.addPolyline(polylineOptions);
                                                     }
                                                 },
                                                 new Response.ErrorListener() {
