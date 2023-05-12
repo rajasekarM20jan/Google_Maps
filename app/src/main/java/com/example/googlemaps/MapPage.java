@@ -14,10 +14,13 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
+import android.location.Address;
 import android.location.Criteria;
+import android.location.Geocoder;
 import android.location.Location;
 import android.location.LocationManager;
 import android.os.Bundle;
+import android.text.Html;
 import android.util.Log;
 import android.widget.Button;
 import android.widget.ImageView;
@@ -29,6 +32,8 @@ import com.android.volley.VolleyError;
 import com.android.volley.toolbox.JsonObjectRequest;
 import com.android.volley.toolbox.Volley;
 import com.google.android.gms.common.api.Status;
+import com.google.android.gms.location.FusedLocationProviderClient;
+import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.maps.CameraUpdate;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
@@ -36,6 +41,7 @@ import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.LatLngBounds;
+import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.gms.maps.model.Polyline;
 import com.google.android.gms.maps.model.PolylineOptions;
@@ -48,6 +54,8 @@ import com.google.android.libraries.places.widget.listener.PlaceSelectionListene
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.io.IOException;
+import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -59,6 +67,10 @@ public class MapPage extends AppCompatActivity {
     private float currentZoomLevel;
     RequestQueue requestQueue;
     private GoogleMap mMap;
+    Geocoder geocoder;
+    LatLng currentLatLng;
+    private FusedLocationProviderClient fusedLocationProviderClient;
+    MarkerOptions markerOptions;
     AutocompleteSupportFragment autocompleteFragment;
 
     @Override
@@ -68,6 +80,7 @@ public class MapPage extends AppCompatActivity {
         refreshButton=findViewById(R.id.refreshButton);
         ZoomIn=findViewById(R.id.ZoomIn);
         ZoomOut=findViewById(R.id.ZoomOut);
+        geocoder=new Geocoder(this);
         apiKey="AIzaSyA6ALVPqgd1jyJ0ODOiHvdriutXitlFDLc";
         refreshButton.setOnClickListener(l->init());
         ZoomOut.setOnClickListener(l->{
@@ -78,10 +91,12 @@ public class MapPage extends AppCompatActivity {
             currentZoomLevel = mMap.getCameraPosition().zoom + 1f;
             mMap.moveCamera(CameraUpdateFactory.zoomTo(currentZoomLevel));
         });
+
         requestQueue = Volley.newRequestQueue(this);
         init();
-        if (!Places.isInitialized()) {
 
+
+        if (!Places.isInitialized()) {
             Places.initialize(getApplicationContext(), apiKey);
         }
     }
@@ -90,108 +105,146 @@ public class MapPage extends AppCompatActivity {
         try {
             if (isNetworkConnected(this)) {
                 if (checkGPSStatus(this)) {
-                    locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
-                    Criteria criteria = new Criteria();
+                    fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(this);
                     if (ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
                             && ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
-                        Location location = locationManager.getLastKnownLocation(locationManager.getBestProvider(criteria, false));
-                        LatLng currentLatLng = new LatLng(location.getLatitude(), location.getLongitude());
-                        SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
-                                .findFragmentById(R.id.map);
-                        mapFragment.getMapAsync(new OnMapReadyCallback() {
-                            @Override
-                            public void onMapReady(GoogleMap googleMap) {
-                                mMap=googleMap;
-                                mMap.clear();
-                                // Add a marker at current location fetched previously and animate the camera
-                                MarkerOptions markerOptions = new MarkerOptions();
-                                markerOptions.position(currentLatLng);
-                                markerOptions.title("You");
-                                mMap.addMarker(markerOptions);
-                                CameraUpdate cameraUpdate = CameraUpdateFactory.newLatLngZoom(currentLatLng, 18);
-                                mMap.animateCamera(cameraUpdate);
-
-                                autocompleteFragment =
-                                        (AutocompleteSupportFragment) getSupportFragmentManager().findFragmentById(R.id.autocomplete_fragment);
-                                assert autocompleteFragment != null;
-                                autocompleteFragment.setPlaceFields(Arrays.asList(Place.Field.ID, Place.Field.NAME, Place.Field.LAT_LNG));
-                                autocompleteFragment.setCountries("IN"); // Restrict to the INDIA
-                                autocompleteFragment.setTypeFilter(TypeFilter.ADDRESS); // Only return ADDRESS
-                                autocompleteFragment.setTypeFilter(TypeFilter.CITIES); // Only return CITIES
-                                autocompleteFragment.setHint("Enter a location");
-                                autocompleteFragment.setOnPlaceSelectedListener(new PlaceSelectionListener() {
+                        fusedLocationProviderClient.getLastLocation().addOnSuccessListener(location -> {
+                            if (location != null) {
+                                currentLatLng = new LatLng(location.getLatitude(), location.getLongitude());
+                                System.out.println("currentLatLng "+currentLatLng);
+                                SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
+                                        .findFragmentById(R.id.map);
+                                mapFragment.getMapAsync(new OnMapReadyCallback() {
                                     @Override
-                                    public void onPlaceSelected(@NonNull Place place) {
-                                        // Handle the selected place
-                                        LatLng destinationLatLng = place.getLatLng();
+                                    public void onMapReady(GoogleMap googleMap) {
+                                        mMap=googleMap;
                                         mMap.clear();
-                                        // Add a marker to the map at the selected destination
+                                        // Add a marker at current location fetched previously and animate the camera
+                                        markerOptions = new MarkerOptions();
+                                        markerOptions.position(currentLatLng);
+                                        markerOptions.title("You");
+                                        markerOptions.draggable(true);
                                         mMap.addMarker(markerOptions);
-                                        mMap.addMarker(new MarkerOptions()
-                                                .position(destinationLatLng)
-                                                .title(place.getName()));
-                                        // Move the camera to the selected destination
-                                        LatLngBounds.Builder builder = new LatLngBounds.Builder();
-                                        builder.include(currentLatLng);
-                                        builder.include(destinationLatLng);
-                                        LatLngBounds bounds = builder.build();
-                                        int padding=100;
-                                        CameraUpdate cameraUpdate2 = CameraUpdateFactory.newLatLngBounds(bounds, padding);
-                                        mMap.animateCamera(cameraUpdate2);
-                                        String origin = currentLatLng.latitude + "," + currentLatLng.longitude;
-                                        String destination = destinationLatLng.latitude + "," + destinationLatLng.longitude;
-                                        String requestUrl = "https://maps.googleapis.com/maps/api/directions/json?origin="
-                                                + origin + "&destination=" + destination + "&key=" + apiKey;
+                                        CameraUpdate cameraUpdate = CameraUpdateFactory.newLatLngZoom(currentLatLng, 18);
+                                        mMap.animateCamera(cameraUpdate);
+                                        autocompleteFragment =
+                                                (AutocompleteSupportFragment) getSupportFragmentManager().findFragmentById(R.id.autocomplete_fragment);
+                                        assert autocompleteFragment != null;
+                                        autocompleteFragment.setPlaceFields(Arrays.asList(Place.Field.ID, Place.Field.NAME, Place.Field.LAT_LNG));
+                                        autocompleteFragment.setCountries("IN"); // Restrict to the INDIA
+                                        autocompleteFragment.setTypeFilter(TypeFilter.ADDRESS); // Only return ADDRESS
+                                        autocompleteFragment.setTypeFilter(TypeFilter.CITIES); // Only return CITIES
+                                        autocompleteFragment.setHint("Enter a location");
+                                        autocompleteFragment.setOnPlaceSelectedListener(new PlaceSelectionListener() {
+                                            @Override
+                                            public void onPlaceSelected(@NonNull Place place) {
+                                                // Handle the selected place
+                                                LatLng destinationLatLng = place.getLatLng();
+                                                mMap.clear();
+                                                // Add a marker to the map at the selected destination
+                                                mMap.addMarker(markerOptions);
+                                                mMap.addMarker(new MarkerOptions()
+                                                        .position(destinationLatLng)
+                                                        .title(place.getName()));
+                                                // Move the camera to the selected destination
+                                                LatLngBounds.Builder builder = new LatLngBounds.Builder();
+                                                builder.include(currentLatLng);
+                                                builder.include(destinationLatLng);
+                                                LatLngBounds bounds = builder.build();
+                                                int padding=100;
+                                                CameraUpdate cameraUpdate2 = CameraUpdateFactory.newLatLngBounds(bounds, padding);
+                                                mMap.animateCamera(cameraUpdate2);
+                                                String origin = currentLatLng.latitude + "," + currentLatLng.longitude;
+                                                String destination = destinationLatLng.latitude + "," + destinationLatLng.longitude;
+                                                String requestUrl = "https://maps.googleapis.com/maps/api/directions/json?origin="
+                                                        + origin + "&destination=" + destination + "&key=" + apiKey;
 
-                                        JsonObjectRequest request = new JsonObjectRequest(Request.Method.GET, requestUrl, null,
-                                                new Response.Listener<JSONObject>() {
-                                                    @Override
-                                                    public void onResponse(JSONObject response) {
-                                                        // Parse the response to extract the polylines information
-                                                        String encodedPolyline = "";
-                                                        try {
-                                                            JSONObject route = response.getJSONArray("routes").getJSONObject(0);
-                                                            JSONObject polyline = route.getJSONObject("overview_polyline");
-                                                            encodedPolyline = polyline.getString("points");
-                                                        } catch (JSONException e) {
-                                                            e.printStackTrace();
+                                                JsonObjectRequest request = new JsonObjectRequest(Request.Method.GET, requestUrl, null,
+                                                        new Response.Listener<JSONObject>() {
+                                                            @Override
+                                                            public void onResponse(JSONObject response) {
+                                                                // Parse the response to extract the polylines information
+                                                                String encodedPolyline = "";
+                                                                try {
+                                                                    JSONObject route = response.getJSONArray("routes").getJSONObject(0);
+                                                                    JSONObject polyline = route.getJSONObject("overview_polyline");
+                                                                    encodedPolyline = polyline.getString("points");
+                                                                } catch (JSONException e) {
+                                                                    e.printStackTrace();
+                                                                }
+
+                                                                // Draw the polylines on the map using the Polyline class
+                                                                List<LatLng> decodedPolyline = decodePolyline(encodedPolyline);
+                                                                PolylineOptions polylineOptions = null;
+
+                                                                polylineOptions = new PolylineOptions()
+                                                                        .addAll(decodedPolyline)
+                                                                        .color(Color.BLUE)
+                                                                        .width(10);
+
+                                                                mMap.addPolyline(polylineOptions);
+                                                            }
+                                                        },
+                                                        new Response.ErrorListener() {
+                                                            @Override
+                                                            public void onErrorResponse(VolleyError error) {
+                                                                Log.e(null, "Directions request failed.");
+                                                            }
+                                                        });
+                                                //used for adding the JsonObject Request to Volley
+                                                requestQueue.add(request);
+
+                                            }
+
+                                            @Override
+                                            public void onError(@NonNull Status status) {
+                                                // Handle error
+                                            }
+                                        });
+
+
+                                        mMap.setOnMarkerDragListener(new GoogleMap.OnMarkerDragListener() {
+                                            @Override
+                                            public void onMarkerDragStart(@NonNull Marker marker) {
+                                                // Do nothing
+                                            }
+
+                                            @Override
+                                            public void onMarkerDrag(@NonNull Marker marker) {
+                                                // Do nothing
+                                            }
+
+                                            @Override
+                                            public void onMarkerDragEnd(@NonNull Marker marker) {
+                                                LatLng position = marker.getPosition();
+                                                double latitude = position.latitude;
+                                                double longitude = position.longitude;
+                                                DecimalFormat df=new DecimalFormat("#.####");
+                                                String title = "Lat: " + df.format(latitude) + ", Lng: " + df.format(longitude);
+                                                String addressLine="";
+                                                try {
+                                                    List<Address> addresses = geocoder.getFromLocation(latitude, longitude, 1);
+                                                    if (addresses != null && addresses.size() > 0) {
+                                                        Address address = addresses.get(0);
+                                                        String addressString = address.getAddressLine(0);
+                                                        if (addressString != null && !addressString.isEmpty()) {
+                                                            addressLine = "(" + addressString + ")";
                                                         }
-
-                                                        // Draw the polylines on the map using the Polyline class
-                                                        List<LatLng> decodedPolyline = decodePolyline(encodedPolyline);
-                                                        PolylineOptions polylineOptions = null;
-
-                                                        polylineOptions = new PolylineOptions()
-                                                                .addAll(decodedPolyline)
-                                                                .color(Color.BLUE)
-                                                                .width(10);
-
-                                                        mMap.addPolyline(polylineOptions);
                                                     }
-                                                },
-                                                new Response.ErrorListener() {
-                                                    @Override
-                                                    public void onErrorResponse(VolleyError error) {
-                                                        Log.e(null, "Directions request failed.");
-                                                    }
-                                                });
-                                        //used for adding the JsonObject Request to Volley
-                                        requestQueue.add(request);
+                                                } catch (IOException e) {
+                                                    e.printStackTrace();
+                                                }
+                                                marker.setTitle(title + addressLine);
+                                                marker.showInfoWindow();
+                                            }
+                                        });
 
-                                    }
-
-                                    @Override
-                                    public void onError(@NonNull Status status) {
-                                        // Handle error
                                     }
                                 });
-
-
                             }
                         });
                     }else{
-                        MainActivity m=new MainActivity();
-                        m.requestPermissions();
+                        init();
                     }
                 }
             }
