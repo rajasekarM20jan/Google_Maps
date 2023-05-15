@@ -120,7 +120,7 @@ public class MapPage extends AppCompatActivity {
                                         mMap=googleMap;
                                         mMap.clear();
                                         // Add a marker at current location fetched previously and animate the camera
-                                        markerOptions = new MarkerOptions();
+                                         markerOptions = new MarkerOptions();
                                         markerOptions.position(currentLatLng);
                                         markerOptions.title("You");
                                         markerOptions.draggable(true);
