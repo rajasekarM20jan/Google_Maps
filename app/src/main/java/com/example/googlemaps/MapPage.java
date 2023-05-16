@@ -6,6 +6,7 @@ import static com.example.googlemaps.MainActivity.isNetworkConnected;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.AppCompatImageButton;
 import androidx.core.app.ActivityCompat;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
@@ -22,8 +23,15 @@ import android.location.LocationManager;
 import android.os.Bundle;
 import android.text.Html;
 import android.util.Log;
+import android.view.KeyEvent;
+import android.view.View;
+import android.view.inputmethod.EditorInfo;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.ImageView;
+import android.widget.SearchView;
+import android.widget.TextView;
+import android.widget.Toast;
 
 import com.android.volley.Request;
 import com.android.volley.RequestQueue;
@@ -48,6 +56,8 @@ import com.google.android.gms.maps.model.PolylineOptions;
 import com.google.android.libraries.places.api.Places;
 import com.google.android.libraries.places.api.model.Place;
 import com.google.android.libraries.places.api.model.TypeFilter;
+import com.google.android.libraries.places.api.net.PlacesClient;
+import com.google.android.libraries.places.widget.Autocomplete;
 import com.google.android.libraries.places.widget.AutocompleteSupportFragment;
 import com.google.android.libraries.places.widget.listener.PlaceSelectionListener;
 
@@ -59,6 +69,7 @@ import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 
 public class MapPage extends AppCompatActivity {
     LocationManager locationManager;
@@ -72,7 +83,6 @@ public class MapPage extends AppCompatActivity {
     private FusedLocationProviderClient fusedLocationProviderClient;
     MarkerOptions markerOptions;
     AutocompleteSupportFragment autocompleteFragment;
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -133,8 +143,20 @@ public class MapPage extends AppCompatActivity {
                                         autocompleteFragment.setPlaceFields(Arrays.asList(Place.Field.ID, Place.Field.NAME, Place.Field.LAT_LNG));
                                         autocompleteFragment.setCountries("IN"); // Restrict to the INDIA
                                         autocompleteFragment.setTypeFilter(TypeFilter.ADDRESS); // Only return ADDRESS
-                                        autocompleteFragment.setTypeFilter(TypeFilter.CITIES); // Only return CITIES
+                                        /*autocompleteFragment.setTypeFilter(TypeFilter.CITIES); // Only return CITIES*/
                                         autocompleteFragment.setHint("Enter a location");
+                                        EditText et=autocompleteFragment.requireView().findViewById(com.google.android.libraries.places.R.id.places_autocomplete_search_input);
+                                        et.setOnEditorActionListener((v, actionId, event) -> {
+                                            if (actionId == EditorInfo.IME_ACTION_SEARCH) {
+                                                // Perform the desired action when the search icon is pressed
+                                                String query = et.getText().toString();
+                                                System.out.println("qwertyuiop "+query);
+                                                // Perform your logic with the query text
+                                                return true;
+                                            }
+                                            System.out.println("qwertyuiop1");
+                                            return false;
+                                        });
                                         autocompleteFragment.setOnPlaceSelectedListener(new PlaceSelectionListener() {
                                             @Override
                                             public void onPlaceSelected(@NonNull Place place) {
@@ -201,6 +223,7 @@ public class MapPage extends AppCompatActivity {
                                                 // Handle error
                                             }
                                         });
+
 
 
                                         mMap.setOnMarkerDragListener(new GoogleMap.OnMarkerDragListener() {
